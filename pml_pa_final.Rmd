@@ -14,7 +14,7 @@ I want to show with this work the practical use of machine learning with physica
 1. Replace all #DIV/0! and empty data with NA.
 2. Remove all columns with less than 20% of data.
 3. Remove rows that have NA's
-4. Delete new_window and num_windows because this is not physical data.
+4. Delete **new_window** and **num_windows** because this is not physical data.
 
 
 ```{r, clear_data, echo=TRUE, eval=FALSE}
@@ -69,7 +69,7 @@ te<-na.omit(te)
 
 ###Select the best machine learning method for this data.
 
-I select 10% of the data to choose accuracy method. the code is on file **pa_pml.Rmd**. The results are: 
+I select 10% of the data to choose accuracy method. the code is on file **pa_pml.Rmd** in this repostery. The results are: 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -92,7 +92,7 @@ The best method is random forest without pre process.
 
 ###Training 
 
-The data was splitted 75% for training, 25% for testing, the training was spent 14 hours in my computer. I used The following code:
+The data was splitted 75% for training, 25% for validation. The training was spent 14 hours in my computer. I used The following code:
 
 ```{r echo=TRUE, eval=FALSE}
 modelFit<-train(tr$classe ~ ., data=tr[-53],method="rf",prox=TRUE)
@@ -108,8 +108,12 @@ load("mF3.RData")
 load("cm3.RData")
 mf<-mF3$finalModel
 mfc<-cm3$table
-
+error<-1-diag(cm3$table)/rowSums(cm3$table)
+mfc<-cbind(mfc,format(error, digits=2))
+colnames(mfc)=c('A','B','C','D','E','Error')
 htmlTable(mfc,title='Confusion matrix', css.cell = "padding-left: .5em; padding-right: .2em;")
+
+
 ```
 
 
@@ -117,9 +121,9 @@ htmlTable(mfc,title='Confusion matrix', css.cell = "padding-left: .5em; padding-
 
 
 
-Confusion matrix show that the method is very accuracy, only 54 samples from 14717 was wrong.
+Confusion matrix show that the method is very accuracy, the model was validated with 25% of new data (4905 records) and only 28 samples were misclassified. It is an error of 0.57%
 
-The accuracy is `r round(mF3$result$Accuracy[2],3)` 
+The accuracy is `r round(cm3$overall["Accuracy"],3)` 
 
 ####Errors vs number of trees
 
@@ -133,7 +137,7 @@ legend("topright", legend=c("Oob error",unique(mf$obsLevels)), col=c(1,unique(as
 ```
 
 
-This graphics show the  # of trees vs errors  of **Out of bag error** and each classification level. With this graphic can be concluded that with only 150 trees the model has high accuracy too. I run a new model with training function of randomForest package and I got a big surprise , the training only took four minutes against 14 hours delayed training with 500 trees in Caret Package.
+This graphics show the  # of trees vs errors  of **Out of bag error** and each classification level. With this graphic can be concluded that with only 150 trees the model has high accuracy too. I run a new model with training function of randomForest package and I got a big surprise: the training only took four minutes against 14 hours delayed training with 500 trees in Caret Package.
 
 The code was:
 
@@ -142,7 +146,7 @@ rf<-randomForest(y=tr$classe,x=tr[-53],ntree=150,prox=TRUE)
 
 ```
 
-I test the 20 testing samples and the answer is the same with both models.
+I test the 20 testing samples of **peer assigment submission** and the answer is the same with both models.
 
 ###Variable importance.
 
