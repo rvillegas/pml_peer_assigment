@@ -16,7 +16,7 @@ output: html_document
 #cl <- makeCluster(detectCores())
 #registerDoParallel(cl)
 library(caret)
-setwd('D:\\rvillegas\\Mio\\coursera\\pml\\wd\\pa')
+setwd('D:\\rvillegas\\Mio\\coursera\\pml\\wd\\pml_peer_assigment')
 data<-data.frame(read.csv('pml-training.csv',header=TRUE, stringsAsFactor=FALSE))
 data_test<-data.frame(read.csv('pml-testing.csv',header=TRUE, stringsAsFactor=FALSE))
 #Names of columns is different fron training and testing, but the position is the same
@@ -163,7 +163,7 @@ Note that the `echo = FALSE` parameter was added to the code chunk to prevent pr
 library(caret)
 library(randomForest)
 
-setwd('D:\\rvillegas\\Mio\\coursera\\pml\\wd\\pa')
+setwd('D:\\rvillegas\\Mio\\coursera\\pml\\wd\\pml_peer_assigment')
 data<-data.frame(read.csv('pml-training.csv',header=TRUE, stringsAsFactor=FALSE))
 data_test<-data.frame(read.csv('pml-testing.csv',header=TRUE, stringsAsFactor=FALSE))
 #Names of columns is different fron training and testing, but the position is the same

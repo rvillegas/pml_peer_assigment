@@ -21,7 +21,7 @@ I want to show with this work the practical use of machine learning with physica
 
 library(caret)
 library(randomForest)
-setwd('D:\\rvillegas\\Mio\\coursera\\pml\\wd\\pa')
+setwd('D:\\rvillegas\\Mio\\coursera\\pml\\wd\\pml_peer_assigment')
 data<-data.frame(read.csv('pml-training.csv',header=TRUE, stringsAsFactor=FALSE))
 data_test<-data.frame(read.csv('pml-testing.csv',header=TRUE, stringsAsFactor=FALSE))
 #Names of columns is different fron training and testing, but the position is the same
@@ -106,8 +106,8 @@ mF3<-modelFit
 load("mF3.RData")
 load("cm3.RData")
 mf<-mF3$finalModel
-mfc<-mf$confusion
-mfc[,6]=format(mfc[,6],digits=3)
+mfc<-cm3$table
+
 htmlTable(mfc,title='Confusion matrix', css.cell = "padding-left: .5em; padding-right: .2em;")
 ```
 
