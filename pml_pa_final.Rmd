@@ -1,0 +1,157 @@
+---
+title: "Peer assigment practical machine learning course"
+author: "ramiro villegas"
+date: "Wednesday, June 17, 2015"
+output: html_document
+---
+
+###Executive summary.
+
+I want to show with this work the practical use of machine learning with physical data obtained with  IMUs ( inertial electronic units) to classify several ways to do an exercise.
+
+###Cleaning data.
+
+1. Replace all #DIV/0! and empty data with NA.
+2. Remove all columns with less than 20% of data.
+3. Remove rows that have NA's
+4. Delete new_window and num_windows because this is not physical data.
+
+
+```{r, clear_data, echo=TRUE, eval=FALSE}
+
+library(caret)
+library(randomForest)
+setwd('D:\\rvillegas\\Mio\\coursera\\pml\\wd\\pa')
+data<-data.frame(read.csv('pml-training.csv',header=TRUE, stringsAsFactor=FALSE))
+data_test<-data.frame(read.csv('pml-testing.csv',header=TRUE, stringsAsFactor=FALSE))
+#Names of columns is different fron training and testing, but the position is the same
+data$classe<-as.factor(data$classe)
+#nf: Total rows
+nf<-dim(data)[1]
+#fc: Factor to select the number of rows, to test methods I use 0.1,
+#    to final evaluation with selected method I use 1.0
+fc<-1.0
+
+filas<-as.integer(runif(nf*fc,1,nf))
+data<-data[filas,]
+
+#Split the data in training and testing
+intrain<-createDataPartition(y=data$classe,p=0.75,list=FALSE)
+tr<-data[intrain,]
+te<-data[-intrain,]
+
+# convert #DIV/0! and empty in NA's
+
+tr[tr=="#DIV/0!"]<-NA
+tr[tr==""]<-NA
+nc<-dim(tr)[2]
+
+# extract only the selected columns
+
+tr<-tr[,8:nc]
+nc<-dim(te)[2]
+te<-te[,8:nc]
+
+# Count the NA per column and delete the columns with less than 20% of data
+x<-apply(tr,2,function(x) sum(is.na(x)))
+nf<-dim(tr)[1]
+limite<-nf*0.2
+x<-x[x<limite]
+#Select only the columns without NA values
+n<-names(x)
+tr<-tr[n]
+te<-te[n]
+#Delete all files with NA values.
+tr<-na.omit(tr)
+te<-na.omit(te)
+
+```
+
+###Select the best machine learning method for this data.
+
+I select 10% of the data to choose accuracy method. the code is on file **pa_pml.Rmd**. The results are: 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+library(htmlTable)
+library(randomForest)
+accu<-c("rpart", "No",'0.493')
+accu<-rbind(accu,c("rpart","pca",'0.391'))
+accu<-rbind(accu,c("rpart","center ,   scale",'0.493'))
+accu<-rbind(accu,c('random forest','pca','0.840'))
+accu<-rbind(accu,c('random forest','No','0.947'))
+accu<-rbind(accu,c('Boosting','pca','0.724'))
+accu<-rbind(accu,c('Boosting','No','0.937'))
+colnames(accu)=c('Method','Pre process','Accuracy')
+htmlTable(accu, rnames=FALSE, align=c("l","l","r"))
+```
+
+
+The best method is random forest without pre process.
+
+###Training 
+
+The data was splitted 75% for training, 25% for testing, the training was spent 14 hours in my computer. I used The following code:
+
+```{r echo=TRUE, eval=FALSE}
+modelFit<-train(tr$classe ~ ., data=tr[-53],method="rf",prox=TRUE)
+cm3<-confusionMatrix(te$classe,predict(modelFit,te[-53]))
+mF3<-modelFit
+```
+###Results.
+
+####Confusion maxtrix.
+
+```{r echo=FALSE, warning=FALSE}
+load("mF3.RData")
+load("cm3.RData")
+mf<-mF3$finalModel
+mfc<-mf$confusion
+mfc[,6]=format(mfc[,6],digits=3)
+htmlTable(mfc,title='Confusion matrix', css.cell = "padding-left: .5em; padding-right: .2em;")
+```
+
+
+
+
+
+
+Confusion matrix show that the method is very accuracy, only 54 samples from 14717 was wrong.
+
+The accuracy is `r round(mF3$result$Accuracy[2],3)` 
+
+####Errors vs number of trees
+
+```{r echo=FALSE, warning=FALSE, results='asis' }
+
+
+plot(mf, log="y", main="Random forest Model")
+
+legend("topright", legend=c("Oob error",unique(mf$obsLevels)), col=c(1,unique(as.numeric(mf$y)+1)), pch=19)
+
+```
+
+
+This graphics show the  # of trees vs errors  of **Out of bag error** and each classification level. With this graphic can be concluded that with only 150 trees the model has high accuracy too. I run a new model with training function of randomForest package and I got a big surprise , the training only took four minutes against 14 hours delayed training with 500 trees in Caret Package.
+
+The code was:
+
+```{r echo=TRUE, eval=FALSE}
+rf<-randomForest(y=tr$classe,x=tr[-53],ntree=150,prox=TRUE)
+
+```
+
+I test the 20 testing samples and the answer is the same with both models.
+
+###Variable importance.
+
+
+```{r echo=FALSE, warning=FALSE }
+varImpPlot(mf,sort=TRUE, main="Variable importance", cex=0.7)
+```
+
+This graphic show the order of importance of variables.
+
+##Conclusion.
+
+Doing this work I learned that this method can be very useful when there are many variables and a lot of data , but the default values used in the Caret package may have been revised like **ntree**, because  changing it  the process time it is greatly decreased without decrease the accuracy.

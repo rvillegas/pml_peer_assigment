@@ -1,0 +1,292 @@
+rf---
+title: "pa_pml.Rmd"
+author: "ramiro villegas"
+date: "Friday, June 12, 2015"
+output: html_document
+---
+#Clean data
+
+1. Replace all #DIV/0! and empty data with NA
+2. Remove all columns with less than 20% of data
+3. Remove rows that have NA's
+
+```{r}
+# enable multi-core processing
+#library(doParallel)
+#cl <- makeCluster(detectCores())
+#registerDoParallel(cl)
+library(caret)
+setwd('D:\\rvillegas\\Mio\\coursera\\pml\\wd\\pa')
+data<-data.frame(read.csv('pml-training.csv',header=TRUE, stringsAsFactor=FALSE))
+data_test<-data.frame(read.csv('pml-testing.csv',header=TRUE, stringsAsFactor=FALSE))
+#Names of columns is different fron training and testing, but the position is the same
+data$classe<-as.factor(data$classe)
+nf<-dim(data)[1]
+
+filas<-as.integer(runif(nf*1,1,nf))
+
+data<-data[filas,]
+intrain<-createDataPartition(y=data$classe,p=0.75,list=FALSE)
+tr<-data[intrain,]
+te<-data[-intrain,]
+# Convierte todos los div cero en NA
+
+tr[tr=="#DIV/0!"]<-NA
+tr[tr==""]<-NA
+nc<-dim(tr)[2]
+tr<-tr[,8:nc]
+nc<-dim(te)[2]
+te<-te[,8:nc]
+# Cuenta los NA por columna
+#x<-apply(tr[,1:159],2,function(x) sum(is.na(x)))
+x<-apply(tr,2,function(x) sum(is.na(x)))
+# Selecciona las columnas donde los NA son menos del 20%
+nf<-dim(tr)[1]
+limite<-nf*0.2
+x<-x[x<limite]
+#Nombre de las variables que la mayoria de los datos no son nulos
+n<-names(x)
+tr<-tr[n]
+te<-te[n]
+#Elimina todas las filas que contienen algun valor nulo.
+tr<-na.omit(tr)
+te<-na.omit(te)
+nf<-dim(tr)[1]
+nc<-dim(tr)[2]
+#for (i in 1:nc){
+#  if (typeof(tr[,i])=="integer") tr[,i]<-as.numeric(tr[,i])
+#}
+
+```
+
+
+```{r echo=TRUE,}
+# M<-abs(cor(tr[,-53]))
+# diag(M)<-0
+# which(M>0.8, arr.ind=T)
+# cr<-which(M>0.8, arr.ind=T)
+# nf<-length(cr)
+# 
+# for (i in 1:nf){
+#   plot(tr[,cr[i,1]], tr[,cr[i,2]], col=tr$classe, xlab=colnames(tr)[cr[i,1]], ylab=colnames(tr)[cr[i,2]], main=paste('Cor:',M[cr[i,1],cr[i,2]]))
+# }
+  
+
+
+
+
+```
+
+
+
+
+```{r, echo=FALSE}
+library(rpart)
+library(randomForest)
+library(gbm)
+#test some methods
+
+#rpart
+
+modelFit<-train(tr$classe ~ ., data=tr[,-53],method="rpart")
+cm0<-confusionMatrix(te$classe,predict(modelFit,te[-53]))
+mF0<-modelFit
+
+paste0("rpart Accuracy:",cm0$overall["Accuracy"])
+
+# rpart with pca
+
+preProc <- preProcess(tr[,-53],method ="pca",thresh=0.95)
+trainPC<-predict(preProc,tr[,-53])
+modelFit<-train(tr$classe ~ ., data=trainPC,method="rpart")
+testPC<-predict(preProc,te[,-53])
+cm1<-confusionMatrix(te$classe,predict(modelFit,testPC))
+mF1<-modelFit
+paste0("rpart with pca Accuracy:",cm1$overall["Accuracy"])
+
+# rpart with std
+
+preProc <- preProcess(tr[,-53],method =c("scale","center"))
+trainPC<-predict(preProc,tr[,-53])
+modelFit<-train(tr$classe ~ ., data=trainPC,method="rpart")
+testPC<-predict(preProc,te[,-53])
+cm1_1<-confusionMatrix(te$classe,predict(modelFit,testPC))
+mF1_1<-modelFit
+paste0("rpart with standarization  Accuracy:",cm1_1$overall["Accuracy"])
+
+#random forest with pca
+preProc <- preProcess(tr[,-53],method ="pca",thresh=0.95)
+trainPC<-predict(preProc,tr[,-53])
+modelFit<-train(tr$classe ~ ., data=trainPC,method="rf",prox=TRUE)
+testPC<-predict(preProc,te[,-53])
+cm2<-confusionMatrix(te$classe,predict(modelFit,testPC))
+mF2<-modelFit
+
+paste0("rf with pca Accuracy:",cm2$overall["Accuracy"])
+
+#random forest 
+modelFit<-train(tr$classe ~ ., data=tr[-53],method="rf",prox=TRUE)
+cm3<-confusionMatrix(te$classe,predict(modelFit,te[-53]))
+mF3<-modelFit
+
+paste0("rf Accuracy:",cm3$overall["Accuracy"])
+
+#Boosting 
+
+#preProc <- preProcess(tr[,-53],method ="pca",thresh=0.95)
+#trainPC<-predict(preProc,tr[,-53])
+modelFit<-train(tr$classe ~ ., data=tr[-53],method="gbm", verbose=FALSE)
+#testPC<-predict(preProc,te[,-53])
+cm4<-confusionMatrix(te$classe,predict(modelFit,te[,-53]))
+mF4<-modelFit
+
+
+paste0("gmb Accuracy:",cm4$overall["Accuracy"])
+
+##Boosting with pca
+
+preProc <- preProcess(tr[,-53],method ="pca",thresh=0.95)
+trainPC<-predict(preProc,tr[,-53])
+modelFit<-train(tr$classe ~ ., data=trainPC,method="gbm", verbose=FALSE)
+testPC<-predict(preProc,te[,-53])
+cm5<-confusionMatrix(te$classe,predict(modelFit,testPC))
+mF5<-modelFit
+
+paste0("gmb with pca Accuracy:",cm5$overall["Accuracy"])
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+#Modelo final a ser evaluado
+
+
+library(caret)
+library(randomForest)
+
+setwd('D:\\rvillegas\\Mio\\coursera\\pml\\wd\\pa')
+data<-data.frame(read.csv('pml-training.csv',header=TRUE, stringsAsFactor=FALSE))
+data_test<-data.frame(read.csv('pml-testing.csv',header=TRUE, stringsAsFactor=FALSE))
+#Names of columns is different fron training and testing, but the position is the same
+data$classe<-as.factor(data$classe)
+nf<-dim(data)[1]
+
+filas<-as.integer(runif(nf*1,1,nf))
+
+data<-data[filas,]
+intrain<-createDataPartition(y=data$classe,p=0.75,list=FALSE)
+tr<-data[intrain,]
+te<-data[-intrain,]
+
+# Convierte todos los div cero en NA
+
+tr[tr=="#DIV/0!"]<-NA
+tr[tr==""]<-NA
+nc<-dim(tr)[2]
+tr<-tr[,8:nc]
+nc<-dim(te)[2]
+te<-te[,8:nc]
+# Cuenta los NA por columna
+#x<-apply(tr[,1:159],2,function(x) sum(is.na(x)))
+x<-apply(tr,2,function(x) sum(is.na(x)))
+# Selecciona las columnas donde los NA son menos del 20%
+nf<-dim(tr)[1]
+limite<-nf*0.2
+x<-x[x<limite]
+#Nombre de las variables que la mayoria de los datos no son nulos
+n<-names(x)
+tr<-tr[n]
+te<-te[n]
+#Elimina todas las filas que contienen algun valor nulo.
+tr<-na.omit(tr)
+te<-na.omit(te)
+nf<-dim(tr)[1]
+nc<-dim(tr)[2]
+
+Sys.time()
+#random forest 
+modelFit<-train(tr$classe ~ ., data=tr[-53],method="rf",prox=TRUE)
+cm3<-confusionMatrix(te$classe,predict(modelFit,te[-53]))
+mF3<-modelFit
+save(cm3,"cm3.RData")
+save(mF3,"mF3.RData")
+paste0("rf Accuracy:",cm3$overall["Accuracy"])
+Sys.time()
+
+```
+
+
+
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+dt<-data.frame(read.csv('pml-testing.csv',header=TRUE, stringsAsFactor=FALSE))
+dt<-dt[,8:159]
+answer=predict(mF3,dt)
+
+pml_write_files(answer)
+
+
+
+
+```
+
+
+
+```{r}
+
+library(randomForest)
+
+setwd('D:\\rvillegas\\Mio\\coursera\\pml\\wd\\pa')
+data<-data.frame(read.csv('pml-training.csv',header=TRUE, stringsAsFactor=FALSE))
+data_test<-data.frame(read.csv('pml-testing.csv',header=TRUE, stringsAsFactor=FALSE))
+#Names of columns is different fron training and testing, but the position is the same
+data$classe<-as.factor(data$classe)
+nf<-dim(data)[1]
+
+filas<-as.integer(runif(nf*0.2,1,nf))
+
+data<-data[filas,]
+intrain<-createDataPartition(y=data$classe,p=0.75,list=FALSE)
+tr<-data[intrain,]
+te<-data[-intrain,]
+
+# Convierte todos los div cero en NA
+
+tr[tr=="#DIV/0!"]<-NA
+tr[tr==""]<-NA
+nc<-dim(tr)[2]
+tr<-tr[,8:nc]
+nc<-dim(te)[2]
+te<-te[,8:nc]
+# Cuenta los NA por columna
+#x<-apply(tr[,1:159],2,function(x) sum(is.na(x)))
+x<-apply(tr,2,function(x) sum(is.na(x)))
+# Selecciona las columnas donde los NA son menos del 20%
+nf<-dim(tr)[1]
+limite<-nf*0.2
+x<-x[x<limite]
+#Nombre de las variables que la mayoria de los datos no son nulos
+n<-names(x)
+tr<-tr[n]
+te<-te[n]
+#Elimina todas las filas que contienen algun valor nulo.
+tr<-na.omit(tr)
+te<-na.omit(te)
+nf<-dim(tr)[1]
+nc<-dim(tr)[2]
+
+
+
+ac.rf <- randomForest(tr$classe ~ ., data=tr[-53], ntree=1000,
+                          keep.forest=FALSE, importance=TRUE)
+importance(ac.rf)
+importance(ac.rf, type=1)
+
+```
+
