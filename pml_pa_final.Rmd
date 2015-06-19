@@ -72,6 +72,7 @@ te<-na.omit(te)
 I select 10% of the data to choose accuracy method. the code is on file **pa_pml.Rmd**. The results are: 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
+
 library(knitr)
 library(htmlTable)
 library(randomForest)
